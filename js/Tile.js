@@ -1,4 +1,4 @@
-import { CHARSET, SCRAMBLE_COLORS, SCRAMBLE_DURATION, FLIP_DURATION } from './constants.js';
+import { CHARSET, SCRAMBLE_DURATION, FLIP_DURATION } from './constants.js';
 
 export class Tile {
   constructor(row, col) {
@@ -47,41 +47,33 @@ export class Tile {
     }
     this.isAnimating = true;
 
+    // Build the sequence of chars to flip through, wrapping around the charset
+    const fromIndex = CHARSET.indexOf(this.currentChar);
+    const toIndex = CHARSET.indexOf(targetChar);
+    const startIndex = fromIndex === -1 ? 0 : fromIndex;
+    const endIndex = toIndex === -1 ? 0 : toIndex;
+
+    const sequence = [];
+    let i = (startIndex + 1) % CHARSET.length;
+    while (i !== endIndex) {
+      sequence.push(CHARSET[i]);
+      i = (i + 1) % CHARSET.length;
+    }
+    sequence.push(targetChar);
+
     setTimeout(() => {
       this.el.classList.add('scrambling');
-      let scrambleCount = 0;
-      const maxScrambles = 10 + Math.floor(Math.random() * 4);
+      let step = 0;
       const scrambleInterval = 70;
 
       this._scrambleTimer = setInterval(() => {
-        // Random character
-        const randChar = CHARSET[Math.floor(Math.random() * CHARSET.length)];
-        this.frontSpan.textContent = randChar === ' ' ? '' : randChar;
+        const char = sequence[step];
+        this.frontSpan.textContent = char === ' ' ? '' : char;
+        step++;
 
-        // Cycle background color
-        const color = SCRAMBLE_COLORS[scrambleCount % SCRAMBLE_COLORS.length];
-        this.frontEl.style.backgroundColor = color;
-
-        // Briefly change text color for contrast on light backgrounds
-        if (color === '#FFFFFF' || color === '#FFCC00') {
-          this.frontSpan.style.color = '#111';
-        } else {
-          this.frontSpan.style.color = '';
-        }
-
-        scrambleCount++;
-
-        if (scrambleCount >= maxScrambles) {
+        if (step >= sequence.length) {
           clearInterval(this._scrambleTimer);
           this._scrambleTimer = null;
-
-          // Reset colors
-          this.frontEl.style.backgroundColor = '';
-          this.frontSpan.style.color = '';
-
-          // Set the final character directly (skip 3D flip for reliability)
-          // Use a brief opacity flash to simulate the flip settle
-          this.frontSpan.textContent = targetChar === ' ' ? '' : targetChar;
 
           // Quick flash effect: brief scale transform
           this.innerEl.style.transition = `transform ${FLIP_DURATION}ms ease-in-out`;

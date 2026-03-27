@@ -1,18 +1,14 @@
 # FlipOff.
 
-**Turn any TV into a retro split-flap display.** The classic flip-board look, without the $3,500 hardware. And it's free.
+A web-based split-flap display emulator — the kind you'd see at train stations and airports.
 
 ![FlipOff Screenshot](screenshot.png)
 
-## What is this?
-
-FlipOff is a free, open-source web app that emulates a classic mechanical split-flap (flip-board) airport terminal display — the kind you'd see at train stations and airports. It runs full-screen in any browser, turning a TV or large monitor into a beautiful retro display.
-
-No accounts. No subscriptions. No $199 fee. Just open `index.html` and go.
+Just open `index.html` and go.
 
 ## Features
 
-- Realistic split-flap animation with colorful scramble transitions
+- Realistic split-flap animation with sequential character transitions
 - Authentic mechanical clacking sound (recorded from a real split-flap display)
 - Auto-rotating inspirational quotes
 - Fullscreen TV mode (press `F`)
