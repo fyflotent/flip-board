@@ -228,6 +228,73 @@
   background: rgba(0, 170, 255, 0.32);
 }
 
+/* ── Advanced mode toggle button ───────────────────────── */
+.me-advanced-toggle {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.6px;
+  padding: 3px 7px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.me-advanced-toggle:hover {
+  border-color: rgba(0, 170, 255, 0.35);
+  color: rgba(0, 170, 255, 0.7);
+}
+
+.me-advanced-toggle.active {
+  background: rgba(0, 170, 255, 0.12);
+  border-color: rgba(0, 170, 255, 0.5);
+  color: #00AAFF;
+}
+
+/* ── Cell grid (advanced mode) ──────────────────────────── */
+.me-cell-grid {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.me-cell {
+  width: 23px;
+  height: 26px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: #EEE;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+  padding: 0;
+  text-transform: uppercase;
+  cursor: text;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.me-cell:focus {
+  outline: none;
+  border-color: rgba(0, 170, 255, 0.6);
+  background: rgba(0, 170, 255, 0.1);
+}
+
+.me-cell:not(:placeholder-shown) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Hide counter in advanced rows — not applicable to cell grids */
+.me-row:has(.me-cell-grid) .me-row-counter {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .me-modal {
