@@ -2,38 +2,48 @@
 .tile {
   width: var(--tile-size);
   height: var(--tile-size);
-  perspective: 400px;
+  perspective: 600px;
   background: #111;
   border-radius: 3px;
-}
-
-/* Inner Container (transform target) */
-.tile-inner {
-  width: 100%;
-  height: 100%;
   position: relative;
-  transform-style: preserve-3d;
 }
 
-/* Tile Faces */
-.tile-front,
-.tile-back {
+/* Shared half-panel */
+.tile-top,
+.tile-bottom {
   position: absolute;
-  inset: 1px;
-  backface-visibility: hidden;
+  left: 1px;
+  right: 1px;
+  height: calc(50% - 0.5px);
   background: #222;
-  border-radius: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
     inset 0 -1px 1px rgba(255, 255, 255, 0.02);
-  overflow: hidden;
 }
 
-.tile-front span,
-.tile-back span {
+.tile-top {
+  top: 1px;
+  border-radius: 2px 2px 0 0;
+  transform-origin: bottom center;
+}
+
+.tile-bottom {
+  bottom: 1px;
+  border-radius: 0 0 2px 2px;
+}
+
+/* Character spans — occupy full tile height so the char center sits
+   exactly at the split line, letting each half clip its own portion */
+.tile-top span,
+.tile-bottom span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: calc(var(--tile-size) * 0.52);
   font-weight: 700;
   color: #FFFFFF;
@@ -41,68 +51,59 @@
   letter-spacing: 0.5px;
   line-height: 1;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  pointer-events: none;
 }
 
-.tile-back {
-  transform: rotateX(180deg);
+.tile-top span {
+  top: 0;    /* char center at bottom edge of top panel */
 }
 
-/* Horizontal Split Line — subtle mechanical seam */
-.tile-front::after,
-.tile-back::after {
+.tile-bottom span {
+  bottom: 0; /* char center at top edge of bottom panel */
+}
+
+/* Split seam */
+.tile-top::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
+  bottom: 0;
   height: 1px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.6);
   pointer-events: none;
+  z-index: 1;
 }
 
-/* Highlight Sweep (metallic reflection during flip) */
-.tile-front::before,
-.tile-back::before {
+/* Flap flip: only the top half rotates */
+.tile-top.flipping {
+  animation: topFlapFlip var(--char-flip-duration, 120ms) ease-in-out;
+  will-change: transform;
+}
+
+/* Shading sweep that appears as the flap rotates */
+.tile-top.flipping::before {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 45%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.08) 55%,
+    to bottom,
+    rgba(0, 0, 0, 0.25) 0%,
     transparent 100%
   );
-  opacity: 0;
+  animation: flapShade var(--char-flip-duration, 120ms) ease-in-out;
   pointer-events: none;
-  transition: opacity 0.15s;
+  z-index: 2;
 }
 
-/* 3D Flip Animation */
-.tile-inner.flipping {
-  animation: tileFlip var(--flip-duration, 300ms) ease-in-out forwards;
+@keyframes topFlapFlip {
+  0%   { transform: rotateX(0deg); }
+  50%  { transform: rotateX(-90deg); }
+  100% { transform: rotateX(0deg); }
 }
 
-.tile-inner.flipping .tile-front::before,
-.tile-inner.flipping .tile-back::before {
-  opacity: 1;
-}
-
-@keyframes tileFlip {
-  0% {
-    transform: rotateX(0deg);
-  }
-  50% {
-    transform: rotateX(-90deg);
-  }
-  100% {
-    transform: rotateX(-180deg);
-  }
-}
-
-/* GPU compositing hint during animation only */
-.tile-inner.flipping,
-.tile.scrambling .tile-inner {
-  will-change: transform;
+@keyframes flapShade {
+  0%   { opacity: 0; }
+  50%  { opacity: 1; }
+  100% { opacity: 0; }
 }

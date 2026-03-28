@@ -1,4 +1,4 @@
-import { CHARSET, SCRAMBLE_DURATION, FLIP_DURATION } from './constants.js';
+import { CHARSET } from './constants.js';
 
 export class Tile {
   constructor(row, col) {
@@ -6,45 +6,40 @@ export class Tile {
     this.col = col;
     this.currentChar = ' ';
     this.isAnimating = false;
-    this._scrambleTimer = null;
+    this._flipVersion = 0;
 
-    // Build DOM
     this.el = document.createElement('div');
     this.el.className = 'tile';
 
-    this.innerEl = document.createElement('div');
-    this.innerEl.className = 'tile-inner';
+    this.topEl = document.createElement('div');
+    this.topEl.className = 'tile-top';
+    this.topSpan = document.createElement('span');
+    this.topEl.appendChild(this.topSpan);
 
-    this.frontEl = document.createElement('div');
-    this.frontEl.className = 'tile-front';
-    this.frontSpan = document.createElement('span');
-    this.frontEl.appendChild(this.frontSpan);
+    this.bottomEl = document.createElement('div');
+    this.bottomEl.className = 'tile-bottom';
+    this.bottomSpan = document.createElement('span');
+    this.bottomEl.appendChild(this.bottomSpan);
 
-    this.backEl = document.createElement('div');
-    this.backEl.className = 'tile-back';
-    this.backSpan = document.createElement('span');
-    this.backEl.appendChild(this.backSpan);
-
-    this.innerEl.appendChild(this.frontEl);
-    this.innerEl.appendChild(this.backEl);
-    this.el.appendChild(this.innerEl);
+    this.el.appendChild(this.topEl);
+    this.el.appendChild(this.bottomEl);
   }
 
   setChar(char) {
     this.currentChar = char;
-    this.frontSpan.textContent = char === ' ' ? '' : char;
-    this.backSpan.textContent = '';
-    this.frontEl.style.backgroundColor = '';
+    const text = char === ' ' ? '' : char;
+    this.topSpan.textContent = text;
+    this.bottomSpan.textContent = text;
   }
 
   scrambleTo(targetChar, delay) {
     if (targetChar === this.currentChar) return;
 
-    // Cancel any in-progress animation
-    if (this._scrambleTimer) {
-      clearInterval(this._scrambleTimer);
-      this._scrambleTimer = null;
-    }
+    // Increment version to cancel any in-progress animation
+    this._flipVersion++;
+    const myVersion = this._flipVersion;
+    const cancelled = () => this._flipVersion !== myVersion;
+
     this.isAnimating = true;
 
     // Build the sequence of chars to flip through, wrapping around the charset
@@ -61,35 +56,42 @@ export class Tile {
     }
     sequence.push(targetChar);
 
+    // Scale flip speed so total animation stays ~1s regardless of sequence length
+    const flipDuration = Math.min(150, Math.max(40, 1000 / sequence.length));
+    this.el.style.setProperty('--char-flip-duration', `${flipDuration}ms`);
+
+    const flipStep = (index) => {
+      if (cancelled()) return;
+      if (index >= sequence.length) {
+        this.el.classList.remove('scrambling');
+        this.currentChar = targetChar;
+        this.isAnimating = false;
+        return;
+      }
+
+      const char = sequence[index];
+      this.topEl.classList.add('flipping');
+
+      // At midpoint the top flap is edge-on (invisible) — swap both halves
+      setTimeout(() => {
+        if (cancelled()) return;
+        const text = char === ' ' ? '' : char;
+        this.topSpan.textContent = text;
+        this.bottomSpan.textContent = text;
+      }, flipDuration / 2);
+
+      setTimeout(() => {
+        if (cancelled()) return;
+        this.topEl.classList.remove('flipping');
+        void this.topEl.offsetWidth; // force reflow so animation restarts next step
+        flipStep(index + 1);
+      }, flipDuration);
+    };
+
     setTimeout(() => {
+      if (cancelled()) return;
       this.el.classList.add('scrambling');
-      let step = 0;
-      const scrambleInterval = 70;
-
-      this._scrambleTimer = setInterval(() => {
-        const char = sequence[step];
-        this.frontSpan.textContent = char === ' ' ? '' : char;
-        step++;
-
-        if (step >= sequence.length) {
-          clearInterval(this._scrambleTimer);
-          this._scrambleTimer = null;
-
-          // Quick flash effect: brief scale transform
-          this.innerEl.style.transition = `transform ${FLIP_DURATION}ms ease-in-out`;
-          this.innerEl.style.transform = 'perspective(400px) rotateX(-8deg)';
-
-          setTimeout(() => {
-            this.innerEl.style.transform = '';
-            setTimeout(() => {
-              this.innerEl.style.transition = '';
-              this.el.classList.remove('scrambling');
-              this.currentChar = targetChar;
-              this.isAnimating = false;
-            }, FLIP_DURATION);
-          }, FLIP_DURATION / 2);
-        }
-      }, scrambleInterval);
+      flipStep(0);
     }, delay);
   }
 }
