@@ -56,9 +56,19 @@ export class Tile {
     }
     sequence.push(targetChar);
 
-    // Scale flip speed so total animation stays ~1s regardless of sequence length
-    const flipDuration = Math.min(150, Math.max(40, 1000 / sequence.length));
-    this.el.style.setProperty('--char-flip-duration', `${flipDuration}ms`);
+    // Base flip speed scaled so total animation stays ~1s regardless of sequence length
+    const baseDuration = Math.min(150, Math.max(40, 1000 / sequence.length));
+
+    // Last few flips slow down to simulate mechanical deceleration
+    const slowSteps = Math.min(4, sequence.length);
+    const getDuration = (index) => {
+      const stepsFromEnd = sequence.length - 1 - index;
+      if (stepsFromEnd < slowSteps) {
+        const t = 1 - stepsFromEnd / slowSteps;
+        return Math.round(baseDuration * (1 + t * 1.5));
+      }
+      return baseDuration;
+    };
 
     const flipStep = (index) => {
       if (cancelled()) return;
@@ -69,6 +79,9 @@ export class Tile {
         return;
       }
 
+      const stepDuration = getDuration(index) * (0.85 + Math.random() * 0.3);
+      this.el.style.setProperty('--char-flip-duration', `${stepDuration}ms`);
+
       const char = sequence[index];
       this.topEl.classList.add('flipping');
 
@@ -78,14 +91,14 @@ export class Tile {
         const text = char === ' ' ? '' : char;
         this.topSpan.textContent = text;
         this.bottomSpan.textContent = text;
-      }, flipDuration / 2);
+      }, stepDuration / 2);
 
       setTimeout(() => {
         if (cancelled()) return;
         this.topEl.classList.remove('flipping');
         void this.topEl.offsetWidth; // force reflow so animation restarts next step
         flipStep(index + 1);
-      }, flipDuration);
+      }, stepDuration);
     };
 
     setTimeout(() => {
