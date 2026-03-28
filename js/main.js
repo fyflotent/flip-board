@@ -2,12 +2,13 @@ import { Board } from './Board.js';
 import { SoundEngine } from './SoundEngine.js';
 import { MessageRotator } from './MessageRotator.js';
 import { KeyboardController } from './KeyboardController.js';
+import { MessageEditor, loadMessages } from './MessageEditor.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const boardContainer = document.getElementById('board-container');
   const soundEngine = new SoundEngine();
   const board = new Board(boardContainer, soundEngine);
-  const rotator = new MessageRotator(board);
+  const rotator = new MessageRotator(board, loadMessages() || undefined);
   const keyboard = new KeyboardController(rotator, soundEngine);
 
   // Initialize audio on first user interaction (browser autoplay policy)
@@ -23,12 +24,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', initAudio);
   document.addEventListener('keydown', initAudio);
 
+  // Message editor
+  const editor = new MessageEditor(rotator);
+  document.getElementById('edit-btn')?.addEventListener('click', () => editor.open());
+
   // Start message rotation
   rotator.start();
 
   // Volume toggle button in header
   const volumeBtn = document.getElementById('volume-btn');
   if (volumeBtn) {
+    volumeBtn.classList.add('muted');
     volumeBtn.addEventListener('click', async () => {
       await initAudio();
       const muted = soundEngine.toggleMute();

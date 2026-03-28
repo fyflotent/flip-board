@@ -1,6 +1,6 @@
 /* Board Container */
 .board {
-  --tile-size: clamp(36px, 4.2vw, 62px);
+  --tile-size: clamp(30px, calc((min(100vw, 1280px) - 228px) / 22), 62px);
   --tile-gap: clamp(3px, 0.3vw, 5px);
 
   position: relative;

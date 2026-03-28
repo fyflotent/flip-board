@@ -18,7 +18,7 @@
 /* Standard desktop */
 @media (max-width: 1200px) {
   .board {
-    --tile-size: clamp(32px, 4vw, 50px);
+    --tile-size: clamp(30px, calc((100vw - 260px) / 22), 50px);
   }
 
   .hero h1 {
@@ -33,7 +33,7 @@
 /* Tablet */
 @media (max-width: 900px) {
   .board {
-    --tile-size: clamp(26px, 4.5vw, 40px);
+    --tile-size: clamp(26px, calc((100vw - 167px) / 22), 40px);
     padding: 20px 16px 32px;
     border-radius: 12px;
   }
@@ -68,7 +68,7 @@
 /* Mobile */
 @media (max-width: 600px) {
   .board {
-    --tile-size: clamp(18px, 4vw, 28px);
+    --tile-size: clamp(18px, calc((100vw - 122px) / 22), 28px);
     --tile-gap: 2px;
     padding: 12px 8px 24px;
   }

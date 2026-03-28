@@ -3,7 +3,7 @@ import { FLAP_AUDIO_BASE64 } from './flapAudio.js';
 export class SoundEngine {
   constructor() {
     this.ctx = null;
-    this.muted = false;
+    this.muted = true;
     this._initialized = false;
     this._audioBuffer = null;
     this._currentSource = null;
