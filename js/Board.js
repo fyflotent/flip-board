@@ -1,29 +1,21 @@
 import { Tile } from './Tile.js';
-import {
-  GRID_COLS, GRID_ROWS, STAGGER_DELAY, SCRAMBLE_DURATION,
-  TOTAL_TRANSITION, ACCENT_COLORS
-} from './constants.js';
+import { GRID_COLS, GRID_ROWS, STAGGER_DELAY } from './constants.js';
 import { parseString } from './colorParser.js';
 
 export class Board {
-  constructor(containerEl, soundEngine) {
+  constructor(containerEl, soundEngine, rows = GRID_ROWS) {
     this.cols = GRID_COLS;
-    this.rows = GRID_ROWS;
+    this.rows = rows;
     this.soundEngine = soundEngine;
     this.isTransitioning = false;
     this.tiles = [];
     this.currentGrid = [];
-    this.accentIndex = 0;
 
     // Build board DOM
     this.boardEl = document.createElement('div');
     this.boardEl.className = 'board';
     this.boardEl.style.setProperty('--grid-cols', this.cols);
     this.boardEl.style.setProperty('--grid-rows', this.rows);
-
-    // Left accent squares (2 small stacked blocks)
-    this.leftBar = this._createAccentBar('accent-bar-left');
-    this.boardEl.appendChild(this.leftBar);
 
     // Tile grid
     this.gridEl = document.createElement('div');
@@ -44,10 +36,6 @@ export class Board {
     }
 
     this.boardEl.appendChild(this.gridEl);
-
-    // Right accent squares
-    this.rightBar = this._createAccentBar('accent-bar-right');
-    this.boardEl.appendChild(this.rightBar);
 
     // Keyboard hint icon (bottom-left)
     const hint = document.createElement('div');
@@ -73,27 +61,11 @@ export class Board {
     this.boardEl.appendChild(overlay);
 
     containerEl.appendChild(this.boardEl);
-    this._updateAccentColors();
   }
 
-  _createAccentBar(extraClass) {
-    const bar = document.createElement('div');
-    bar.className = `accent-bar ${extraClass}`;
-    // Just 2 small stacked squares like the original
-    for (let i = 0; i < 2; i++) {
-      const seg = document.createElement('div');
-      seg.className = 'accent-segment';
-      bar.appendChild(seg);
-    }
-    return bar;
-  }
-
-  _updateAccentColors() {
-    const color = ACCENT_COLORS[this.accentIndex % ACCENT_COLORS.length];
-    const segments = this.boardEl.querySelectorAll('.accent-segment');
-    segments.forEach(seg => {
-      seg.style.backgroundColor = color;
-    });
+  // Total time (ms) for a full transition at the current board size.
+  get transitionDuration() {
+    return Math.min(this.rows, 5) * this.cols * STAGGER_DELAY + 1200;
   }
 
   displayMessage(lines) {
@@ -112,7 +84,7 @@ export class Board {
         const oldChar = this.currentGrid[r][c];
 
         if (newChar !== oldChar) {
-          const delay = Math.random() * (this.rows * this.cols * STAGGER_DELAY);
+          const delay = Math.random() * (Math.min(this.rows, 5) * this.cols * STAGGER_DELAY);
           this.tiles[r][c].scrambleTo(newChar, delay);
           hasChanges = true;
         }
@@ -124,17 +96,13 @@ export class Board {
       this.soundEngine.playTransition();
     }
 
-    // Update accent bar colors
-    this.accentIndex++;
-    this._updateAccentColors();
-
     // Update grid state
     this.currentGrid = newGrid;
 
     // Clear transitioning flag after animation completes
     setTimeout(() => {
       this.isTransitioning = false;
-    }, TOTAL_TRANSITION + 200);
+    }, this.transitionDuration);
   }
 
   _formatToGrid(lines) {

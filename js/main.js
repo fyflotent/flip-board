@@ -3,11 +3,15 @@ import { SoundEngine } from './SoundEngine.js';
 import { MessageRotator } from './MessageRotator.js';
 import { KeyboardController } from './KeyboardController.js';
 import { MessageEditor, loadMessages } from './MessageEditor.js';
+import { getGridRows, setGridRows } from './settings.js';
+import { GRID_ROWS_MIN, GRID_ROWS_MAX } from './constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const boardContainer = document.getElementById('board-container');
+  const currentRows = getGridRows();
+
   const soundEngine = new SoundEngine();
-  const board = new Board(boardContainer, soundEngine);
+  const board = new Board(boardContainer, soundEngine, currentRows);
   const rotator = new MessageRotator(board, loadMessages() || undefined);
   const keyboard = new KeyboardController(rotator, soundEngine);
 
@@ -42,5 +46,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Row count controls
+  const rowsDisplay = document.getElementById('rows-count');
+  const rowsDec = document.getElementById('rows-dec');
+  const rowsInc = document.getElementById('rows-inc');
 
+  if (rowsDisplay) rowsDisplay.textContent = currentRows;
+  if (rowsDec) {
+    rowsDec.disabled = currentRows <= GRID_ROWS_MIN;
+    rowsDec.addEventListener('click', () => {
+      setGridRows(currentRows - 1);
+      location.reload();
+    });
+  }
+  if (rowsInc) {
+    rowsInc.disabled = currentRows >= GRID_ROWS_MAX;
+    rowsInc.addEventListener('click', () => {
+      setGridRows(currentRows + 1);
+      location.reload();
+    });
+  }
 });

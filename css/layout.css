@@ -52,6 +52,40 @@
   display: none;
 }
 
+/* Row count control */
+.row-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.row-btn {
+  background: none;
+  color: #555;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 5px;
+  transition: color 0.2s;
+}
+
+.row-btn:hover:not(:disabled) {
+  color: #CCC;
+}
+
+.row-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.row-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+  min-width: 16px;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
 /* Board Section */
 .board-section {
   flex: 1;

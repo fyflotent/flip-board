@@ -1,5 +1,6 @@
 import { MESSAGES, COLOR_MAP } from './constants.js';
 import { parseString, countVisualChars, serializeCells } from './colorParser.js';
+import { getGridRows } from './settings.js';
 
 const COLOR_NAMES = {
   k: 'Black', r: 'Red', o: 'Orange', y: 'Yellow',
@@ -32,7 +33,7 @@ export function loadMessages() {
     if (
       !Array.isArray(parsed) ||
       parsed.length === 0 ||
-      !parsed.every(m => Array.isArray(m) && m.length === 5 && m.every(r => typeof r === 'string'))
+      !parsed.every(m => Array.isArray(m) && m.length === getGridRows() && m.every(r => typeof r === 'string'))
     ) return null;
     return parsed;
   } catch {
@@ -534,7 +535,7 @@ export class MessageEditor {
 
   _onAddMessage() {
     this._draft = this._readDraftFromDOM();
-    this._draft.push(['', '', '', '', '']);
+    this._draft.push(Array(getGridRows()).fill(''));
     // New card is always simple — no index adjustment needed
     this._renderCards();
     this._cardsEl.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

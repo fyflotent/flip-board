@@ -107,7 +107,7 @@ export class Tile {
       setTimeout(() => {
         if (cancelled()) return;
         this.topEl.classList.remove('flipping');
-        void this.topEl.offsetWidth; // force reflow so animation restarts next step
+        void getComputedStyle(this.topEl).animationName; // flush styles (not layout) so animation restarts
         flipStep(index + 1);
       }, stepDuration);
     };
