@@ -158,6 +158,16 @@ export class MessageEditor {
     resetBtn.textContent = 'Reset to defaults';
     resetBtn.addEventListener('click', () => this._onReset());
 
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'me-btn me-btn--ghost';
+    exportBtn.textContent = 'Export JSON';
+    exportBtn.addEventListener('click', () => this._onExport());
+
+    const importBtn = document.createElement('button');
+    importBtn.className = 'me-btn me-btn--ghost';
+    importBtn.textContent = 'Import JSON';
+    importBtn.addEventListener('click', () => this._onImport());
+
     const footerRight = document.createElement('div');
     footerRight.className = 'me-footer-right';
 
@@ -173,7 +183,12 @@ export class MessageEditor {
 
     footerRight.appendChild(addBtn);
     footerRight.appendChild(saveBtn);
-    footer.appendChild(resetBtn);
+    const footerLeft = document.createElement('div');
+    footerLeft.style.cssText = 'display:flex;gap:8px;';
+    footerLeft.appendChild(resetBtn);
+    footerLeft.appendChild(exportBtn);
+    footerLeft.appendChild(importBtn);
+    footer.appendChild(footerLeft);
     footer.appendChild(footerRight);
 
     this._modal.appendChild(header);
@@ -524,6 +539,51 @@ export class MessageEditor {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     this.rotator.setMessages(messages);
     this.close();
+  }
+
+  _onExport() {
+    const messages = this._readDraftFromDOM();
+    const json = JSON.stringify(messages, null, 2);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = 'flipoff-messages.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  _onImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (
+            !Array.isArray(parsed) ||
+            parsed.length === 0 ||
+            !parsed.every(m => Array.isArray(m) && m.length > 0 && m.every(r => typeof r === 'string'))
+          ) {
+            alert('Invalid format: expected an array of messages.');
+            return;
+          }
+          const rows = getGridRows();
+          this._draft = parsed.map(m =>
+            m.length === rows ? m : Array.from({ length: rows }, (_, i) => m[i] ?? '')
+          );
+          this._advancedCards = new Set();
+          this._saveAdvancedCards();
+          this._renderCards();
+        } catch {
+          alert('Could not parse JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
   }
 
   _onReset() {
