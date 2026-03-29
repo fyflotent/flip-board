@@ -112,7 +112,7 @@ export class Board {
         const oldChar = this.currentGrid[r][c];
 
         if (newChar !== oldChar) {
-          const delay = (r * this.cols + c) * STAGGER_DELAY;
+          const delay = Math.random() * (this.rows * this.cols * STAGGER_DELAY);
           this.tiles[r][c].scrambleTo(newChar, delay);
           hasChanges = true;
         }
