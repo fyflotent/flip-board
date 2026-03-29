@@ -1,4 +1,4 @@
-import { CHARSET } from './constants.js';
+import { FULL_CHARSET, COLOR_MAP } from './constants.js';
 
 export class Tile {
   constructor(row, col) {
@@ -25,11 +25,24 @@ export class Tile {
     this.el.appendChild(this.bottomEl);
   }
 
-  setChar(char) {
-    this.currentChar = char;
-    const text = char === ' ' ? '' : char;
-    this.topSpan.textContent = text;
-    this.bottomSpan.textContent = text;
+  // Update DOM to reflect a tile value (char or color code). Does not update currentChar.
+  _renderValue(value) {
+    if (value.length === 2 && value[0] === '\\') {
+      const hex = COLOR_MAP[value[1]];
+      this.el.style.setProperty('--tile-bg', hex);
+      this.topSpan.textContent = '';
+      this.bottomSpan.textContent = '';
+    } else {
+      this.el.style.removeProperty('--tile-bg');
+      const text = value === ' ' ? '' : value;
+      this.topSpan.textContent = text;
+      this.bottomSpan.textContent = text;
+    }
+  }
+
+  setChar(value) {
+    this.currentChar = value;
+    this._renderValue(value);
   }
 
   scrambleTo(targetChar, delay) {
@@ -42,17 +55,17 @@ export class Tile {
 
     this.isAnimating = true;
 
-    // Build the sequence of chars to flip through, wrapping around the charset
-    const fromIndex = CHARSET.indexOf(this.currentChar);
-    const toIndex = CHARSET.indexOf(targetChar);
+    // Build the sequence of states to flip through, wrapping around FULL_CHARSET
+    const fromIndex = FULL_CHARSET.indexOf(this.currentChar);
+    const toIndex = FULL_CHARSET.indexOf(targetChar);
     const startIndex = fromIndex === -1 ? 0 : fromIndex;
     const endIndex = toIndex === -1 ? 0 : toIndex;
 
     const sequence = [];
-    let i = (startIndex + 1) % CHARSET.length;
+    let i = (startIndex + 1) % FULL_CHARSET.length;
     while (i !== endIndex) {
-      sequence.push(CHARSET[i]);
-      i = (i + 1) % CHARSET.length;
+      sequence.push(FULL_CHARSET[i]);
+      i = (i + 1) % FULL_CHARSET.length;
     }
     sequence.push(targetChar);
 
@@ -82,15 +95,13 @@ export class Tile {
       const stepDuration = getDuration(index) * (0.85 + Math.random() * 0.3);
       this.el.style.setProperty('--char-flip-duration', `${stepDuration}ms`);
 
-      const char = sequence[index];
+      const value = sequence[index];
       this.topEl.classList.add('flipping');
 
       // At midpoint the top flap is edge-on (invisible) — swap both halves
       setTimeout(() => {
         if (cancelled()) return;
-        const text = char === ' ' ? '' : char;
-        this.topSpan.textContent = text;
-        this.bottomSpan.textContent = text;
+        this._renderValue(value);
       }, stepDuration / 2);
 
       setTimeout(() => {

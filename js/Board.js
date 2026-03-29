@@ -3,6 +3,7 @@ import {
   GRID_COLS, GRID_ROWS, STAGGER_DELAY, SCRAMBLE_DURATION,
   TOTAL_TRANSITION, ACCENT_COLORS
 } from './constants.js';
+import { parseString } from './colorParser.js';
 
 export class Board {
   constructor(containerEl, soundEngine) {
@@ -139,11 +140,12 @@ export class Board {
   _formatToGrid(lines) {
     const grid = [];
     for (let r = 0; r < this.rows; r++) {
-      const line = (lines[r] || '').toUpperCase();
-      const padTotal = this.cols - line.length;
+      const cells = parseString(lines[r] || '');
+      const padTotal = this.cols - cells.length;
       const padLeft = Math.max(0, Math.floor(padTotal / 2));
-      const padded = ' '.repeat(padLeft) + line + ' '.repeat(Math.max(0, this.cols - padLeft - line.length));
-      grid.push(padded.split(''));
+      const row = Array(padLeft).fill(' ').concat(cells);
+      while (row.length < this.cols) row.push(' ');
+      grid.push(row.slice(0, this.cols));
     }
     return grid;
   }

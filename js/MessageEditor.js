@@ -1,4 +1,13 @@
-import { MESSAGES } from './constants.js';
+import { MESSAGES, COLOR_MAP } from './constants.js';
+import { parseString, countVisualChars, serializeCells } from './colorParser.js';
+
+const COLOR_NAMES = {
+  k: 'Black', r: 'Red', o: 'Orange', y: 'Yellow',
+  g: 'Green', b: 'Blue', p: 'Purple', w: 'White'
+};
+// Swatch cycle: empty = char mode, then 8 colors
+const SWATCH_CYCLE = ['', '\\k', '\\r', '\\o', '\\y', '\\g', '\\b', '\\p', '\\w'];
+const COLOR_KEYS = new Set(Object.keys(COLOR_MAP));
 
 const STORAGE_KEY = 'flipoff_messages';
 const ADVANCED_KEY = 'flipoff_advanced_cards';
@@ -97,10 +106,38 @@ export class MessageEditor {
         e.target.value = e.target.value.toUpperCase();
         e.target.classList.remove('error');
         const counter = e.target.nextElementSibling;
-        if (counter) counter.textContent = `${e.target.value.length}/22`;
+        if (counter) counter.textContent = `${countVisualChars(e.target.value)}/22`;
       } else if (e.target.matches('.me-cell')) {
-        e.target.value = e.target.value.toUpperCase().slice(-1);
-        if (e.target.value !== '') this._moveCellFocus(e.target, 1);
+        const val = e.target.value;
+        const colDiv = e.target.closest('.me-cell-col');
+        const swatch = colDiv ? colDiv.querySelector('.me-cell-color') : null;
+
+        if (val.length === 2 && val[0] === '\\') {
+          const key = val[1].toLowerCase();
+          if (COLOR_KEYS.has(key)) {
+            // \<colorKey> typed — activate color mode and advance
+            e.target.value = '';
+            if (swatch) {
+              const code = '\\' + key;
+              swatch.dataset.colorCode = code;
+              swatch.style.backgroundColor = COLOR_MAP[key];
+              swatch.title = COLOR_NAMES[key];
+              e.target.classList.add('me-cell--colored');
+            }
+            this._moveCellFocus(e.target, 1);
+          } else {
+            // \<non-color> — drop the backslash, keep the second char
+            if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, e.target);
+            e.target.value = val[1].toUpperCase();
+            this._moveCellFocus(e.target, 1);
+          }
+        } else if (val === '\\') {
+          // Partial — waiting for the color key, don't advance yet
+        } else {
+          if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, e.target);
+          e.target.value = val.toUpperCase().slice(-1);
+          if (e.target.value !== '') this._moveCellFocus(e.target, 1);
+        }
       }
     });
 
@@ -193,7 +230,12 @@ export class MessageEditor {
       deleteBtn.title = 'Clear message';
       deleteBtn.addEventListener('click', () => {
         if (advanced) {
-          card.querySelectorAll('.me-cell').forEach(cell => { cell.value = ''; });
+          card.querySelectorAll('.me-cell-col').forEach(colDiv => {
+            const input = colDiv.querySelector('.me-cell');
+            const swatch = colDiv.querySelector('.me-cell-color');
+            input.value = '';
+            if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, input);
+          });
         } else {
           card.querySelectorAll('.me-row-input').forEach(input => {
             input.value = '';
@@ -228,13 +270,12 @@ export class MessageEditor {
         const input = document.createElement('input');
         input.className = 'me-row-input';
         input.type = 'text';
-        input.maxLength = 22;
         input.placeholder = '(blank)';
         input.value = rowValue;
 
         const counter = document.createElement('span');
         counter.className = 'me-row-counter';
-        counter.textContent = `${rowValue.length}/22`;
+        counter.textContent = `${countVisualChars(rowValue)}/22`;
 
         row.appendChild(input);
         row.appendChild(counter);
@@ -250,32 +291,93 @@ export class MessageEditor {
     const grid = document.createElement('div');
     grid.className = 'me-cell-grid';
 
-    const up = rowValue.toUpperCase();
-    const padded = up.length >= 22 ? up.slice(0, 22) : this._expandRow(rowValue);
+    // Parse row into cell values (chars or color codes), centered to 22 columns
+    const parsed = parseString(rowValue);
+    const padLeft = Math.max(0, Math.floor((22 - parsed.length) / 2));
+    const cells = Array(padLeft).fill(' ')
+      .concat(parsed)
+      .concat(Array(Math.max(0, 22 - padLeft - parsed.length)).fill(' '))
+      .slice(0, 22);
+    while (cells.length < 22) cells.push(' ');
 
     for (let col = 0; col < 22; col++) {
-      const cell = document.createElement('input');
-      cell.className = 'me-cell';
-      cell.type = 'text';
-      cell.maxLength = 1;
-      cell.value = padded[col] === ' ' ? '' : padded[col];
-      cell.dataset.col = col;
-      cell.dataset.row = rowIdx;
-      cell.setAttribute('autocomplete', 'off');
-      cell.setAttribute('autocorrect', 'off');
-      cell.setAttribute('autocapitalize', 'characters');
-      cell.setAttribute('spellcheck', 'false');
-      cell.setAttribute('aria-label', `Row ${rowIdx + 1} column ${col + 1}`);
-      grid.appendChild(cell);
+      const cellValue = cells[col];
+      const isColor = cellValue.length === 2 && cellValue[0] === '\\';
+
+      const colDiv = document.createElement('div');
+      colDiv.className = 'me-cell-col';
+
+      const input = document.createElement('input');
+      input.className = 'me-cell';
+      input.type = 'text';
+      input.maxLength = 2;
+      input.dataset.col = col;
+      input.dataset.row = rowIdx;
+      input.setAttribute('autocomplete', 'off');
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('autocapitalize', 'characters');
+      input.setAttribute('spellcheck', 'false');
+      input.setAttribute('aria-label', `Row ${rowIdx + 1} column ${col + 1}`);
+
+      const swatch = document.createElement('button');
+      swatch.className = 'me-cell-color';
+      swatch.type = 'button';
+
+      if (isColor) {
+        const key = cellValue[1];
+        swatch.dataset.colorCode = cellValue;
+        swatch.style.backgroundColor = COLOR_MAP[key];
+        swatch.title = COLOR_NAMES[key];
+        input.value = '';
+        input.classList.add('me-cell--colored');
+      } else {
+        input.value = cellValue === ' ' ? '' : cellValue;
+        swatch.dataset.colorCode = '';
+        swatch.style.backgroundColor = 'transparent';
+        swatch.title = 'No color';
+      }
+
+      swatch.addEventListener('click', () => this._cycleCellColor(swatch, input));
+
+      colDiv.appendChild(input);
+      colDiv.appendChild(swatch);
+      grid.appendChild(colDiv);
     }
 
     return grid;
   }
 
+  _cycleCellColor(swatch, input) {
+    const idx = SWATCH_CYCLE.indexOf(swatch.dataset.colorCode);
+    const next = SWATCH_CYCLE[(idx + 1) % SWATCH_CYCLE.length];
+    if (next) {
+      const key = next[1];
+      swatch.dataset.colorCode = next;
+      swatch.style.backgroundColor = COLOR_MAP[key];
+      swatch.title = COLOR_NAMES[key];
+      input.value = '';
+      input.classList.add('me-cell--colored');
+    } else {
+      this._clearCellColor(swatch, input);
+    }
+  }
+
+  _clearCellColor(swatch, input) {
+    swatch.dataset.colorCode = '';
+    swatch.style.backgroundColor = 'transparent';
+    swatch.title = 'No color';
+    input.classList.remove('me-cell--colored');
+  }
+
   _expandRow(str) {
-    const up = str.trim().toUpperCase();
-    const padLeft = Math.floor((22 - up.length) / 2);
-    return ' '.repeat(padLeft) + up + ' '.repeat(22 - padLeft - up.length);
+    const cells = parseString(str.trim());
+    const padLeft = Math.floor((22 - cells.length) / 2);
+    const padded = Array(padLeft).fill(' ')
+      .concat(cells)
+      .concat(Array(Math.max(0, 22 - padLeft - cells.length)).fill(' '))
+      .slice(0, 22);
+    while (padded.length < 22) padded.push(' ');
+    return serializeCells(padded);
   }
 
   _saveAdvancedCards() {
@@ -391,9 +493,14 @@ export class MessageEditor {
     return Array.from(cards).map(card => {
       if (card.dataset.advanced === '1') {
         return Array.from(card.querySelectorAll('.me-cell-grid')).map(grid =>
-          Array.from(grid.querySelectorAll('.me-cell'))
-            .map(cell => cell.value === '' ? ' ' : cell.value.toUpperCase())
-            .join('')
+          serializeCells(
+            Array.from(grid.querySelectorAll('.me-cell-col')).map(colDiv => {
+              const swatch = colDiv.querySelector('.me-cell-color');
+              if (swatch && swatch.dataset.colorCode) return swatch.dataset.colorCode;
+              const input = colDiv.querySelector('.me-cell');
+              return input.value === '' ? ' ' : input.value.toUpperCase();
+            })
+          )
         );
       }
       return Array.from(card.querySelectorAll('.me-row-input')).map(input => input.value);
@@ -403,10 +510,10 @@ export class MessageEditor {
   _onSave() {
     const messages = this._readDraftFromDOM();
 
-    // Validate simple inputs only (cell inputs are maxLength=1, can't exceed 22)
+    // Validate simple inputs (no maxLength set; count visual chars including color codes)
     let hasError = false;
     this._cardsEl.querySelectorAll('.me-row-input').forEach(input => {
-      if (input.value.length > 22) {
+      if (countVisualChars(input.value) > 22) {
         input.classList.add('error');
         hasError = true;
       }

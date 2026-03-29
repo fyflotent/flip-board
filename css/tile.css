@@ -15,7 +15,7 @@
   left: 1px;
   right: 1px;
   height: calc(50% - 0.5px);
-  background: #222;
+  background: var(--tile-bg, #222);
   overflow: hidden;
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),

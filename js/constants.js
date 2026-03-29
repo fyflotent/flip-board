@@ -9,6 +9,18 @@ export const MESSAGE_INTERVAL = 4000;
 
 export const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,-!?\'/: ';
 
+export const COLOR_MAP = {
+  k: '#000000', r: '#FF2200', o: '#FF8800', y: '#FFDD00',
+  g: '#22BB44', b: '#0088FF', p: '#9900CC', w: '#FFFFFF'
+};
+
+// Full animation sequence: black tile first, characters in middle, other color tiles at end
+export const FULL_CHARSET = [
+  '\\k',
+  ...CHARSET.split(''),
+  '\\r', '\\o', '\\y', '\\g', '\\b', '\\p', '\\w'
+];
+
 export const SCRAMBLE_COLORS = [
   '#00AAFF', '#00FFCC', '#AA00FF',
   '#FF2D00', '#FFCC00', '#FFFFFF'

@@ -260,6 +260,15 @@
   display: flex;
   gap: 2px;
   flex: 1;
+  align-items: flex-start;
+}
+
+.me-cell-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .me-cell {
@@ -288,6 +297,30 @@
 
 .me-cell:not(:placeholder-shown) {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Color tile cell — visually dimmed, content cleared */
+.me-cell.me-cell--colored {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Color swatch button below each cell */
+.me-cell-color {
+  width: 23px;
+  height: 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.me-cell-color:hover {
+  transform: scaleY(1.6);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Hide counter in advanced rows — not applicable to cell grids */
