@@ -6,8 +6,6 @@ const COLOR_NAMES = {
   k: 'Black', r: 'Red', o: 'Orange', y: 'Yellow',
   g: 'Green', b: 'Blue', p: 'Purple', w: 'White'
 };
-// Swatch cycle: empty = char mode, then 8 colors
-const SWATCH_CYCLE = ['', '\\k', '\\r', '\\o', '\\y', '\\g', '\\b', '\\p', '\\w'];
 const COLOR_KEYS = new Set(Object.keys(COLOR_MAP));
 
 const STORAGE_KEY = 'flipoff_messages';
@@ -110,32 +108,27 @@ export class MessageEditor {
         if (counter) counter.textContent = `${countVisualChars(e.target.value)}/22`;
       } else if (e.target.matches('.me-cell')) {
         const val = e.target.value;
-        const colDiv = e.target.closest('.me-cell-col');
-        const swatch = colDiv ? colDiv.querySelector('.me-cell-color') : null;
 
         if (val.length === 2 && val[0] === '\\') {
           const key = val[1].toLowerCase();
           if (COLOR_KEYS.has(key)) {
             // \<colorKey> typed — activate color mode and advance
+            const code = '\\' + key;
             e.target.value = '';
-            if (swatch) {
-              const code = '\\' + key;
-              swatch.dataset.colorCode = code;
-              swatch.style.backgroundColor = COLOR_MAP[key];
-              swatch.title = COLOR_NAMES[key];
-              e.target.classList.add('me-cell--colored');
-            }
+            e.target.dataset.colorCode = code;
+            e.target.style.backgroundColor = COLOR_MAP[key];
+            e.target.classList.add('me-cell--colored');
             this._moveCellFocus(e.target, 1);
           } else {
             // \<non-color> — drop the backslash, keep the second char
-            if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, e.target);
+            if (e.target.dataset.colorCode) this._clearCellColor(e.target);
             e.target.value = val[1].toUpperCase();
             this._moveCellFocus(e.target, 1);
           }
         } else if (val === '\\') {
           // Partial — waiting for the color key, don't advance yet
         } else {
-          if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, e.target);
+          if (e.target.dataset.colorCode) this._clearCellColor(e.target);
           e.target.value = val.toUpperCase().slice(-1);
           if (e.target.value !== '') this._moveCellFocus(e.target, 1);
         }
@@ -145,6 +138,20 @@ export class MessageEditor {
     // Delegated keydown listener for cell grid keyboard navigation
     this._cardsEl.addEventListener('keydown', (e) => {
       if (e.target.matches('.me-cell')) this._onCellKeydown(e);
+    });
+
+    // Prevent focus when clicking a colored cell (so click cycles color instead)
+    this._cardsEl.addEventListener('mousedown', (e) => {
+      if (e.target.matches('.me-cell') && e.target.dataset.colorCode) {
+        e.preventDefault();
+      }
+    });
+
+    // Click a colored cell to cycle through colors; shift+click to go backwards
+    this._cardsEl.addEventListener('click', (e) => {
+      if (e.target.matches('.me-cell') && e.target.dataset.colorCode) {
+        this._cycleInputColor(e.target, e.shiftKey ? -1 : 1);
+      }
     });
 
     body.appendChild(this._cardsEl);
@@ -246,11 +253,9 @@ export class MessageEditor {
       deleteBtn.title = 'Clear message';
       deleteBtn.addEventListener('click', () => {
         if (advanced) {
-          card.querySelectorAll('.me-cell-col').forEach(colDiv => {
-            const input = colDiv.querySelector('.me-cell');
-            const swatch = colDiv.querySelector('.me-cell-color');
+          card.querySelectorAll('.me-cell').forEach(input => {
             input.value = '';
-            if (swatch && swatch.dataset.colorCode) this._clearCellColor(swatch, input);
+            if (input.dataset.colorCode) this._clearCellColor(input);
           });
         } else {
           card.querySelectorAll('.me-row-input').forEach(input => {
@@ -271,18 +276,18 @@ export class MessageEditor {
     cardHeader.appendChild(headerRight);
     card.appendChild(cardHeader);
 
-    message.forEach((rowValue, rowIdx) => {
-      const row = document.createElement('div');
-      row.className = 'me-row';
+    if (advanced) {
+      card.appendChild(this._buildUnifiedGrid(message));
+    } else {
+      message.forEach((rowValue, rowIdx) => {
+        const row = document.createElement('div');
+        row.className = 'me-row';
 
-      const label = document.createElement('span');
-      label.className = 'me-row-label';
-      label.textContent = `Row ${rowIdx + 1}`;
-      row.appendChild(label);
+        const label = document.createElement('span');
+        label.className = 'me-row-label';
+        label.textContent = `Row ${rowIdx + 1}`;
+        row.appendChild(label);
 
-      if (advanced) {
-        row.appendChild(this._buildCellGrid(rowValue, rowIdx));
-      } else {
         const input = document.createElement('input');
         input.className = 'me-row-input';
         input.type = 'text';
@@ -295,99 +300,211 @@ export class MessageEditor {
 
         row.appendChild(input);
         row.appendChild(counter);
-      }
-
-      card.appendChild(row);
-    });
+        card.appendChild(row);
+      });
+    }
 
     return card;
   }
 
-  _buildCellGrid(rowValue, rowIdx) {
-    const grid = document.createElement('div');
-    grid.className = 'me-cell-grid';
+  _buildUnifiedGrid(message) {
+    const section = document.createElement('div');
+    section.className = 'me-adv-section';
 
-    // Parse row into cell values (chars or color codes), centered to 22 columns
-    const parsed = parseString(rowValue);
-    const padLeft = Math.max(0, Math.floor((22 - parsed.length) / 2));
-    const cells = Array(padLeft).fill(' ')
-      .concat(parsed)
-      .concat(Array(Math.max(0, 22 - padLeft - parsed.length)).fill(' '))
-      .slice(0, 22);
-    while (cells.length < 22) cells.push(' ');
+    const wrap = document.createElement('div');
+    wrap.className = 'me-adv-grid-wrap';
+    wrap.dataset.paintColor = '';
 
-    for (let col = 0; col < 22; col++) {
-      const cellValue = cells[col];
-      const isColor = cellValue.length === 2 && cellValue[0] === '\\';
+    const toolbar = this._buildPaletteToolbar(wrap);
+    section.appendChild(toolbar);
 
-      const colDiv = document.createElement('div');
-      colDiv.className = 'me-cell-col';
+    const gridInner = document.createElement('div');
+    gridInner.className = 'me-grid-inner';
 
-      const input = document.createElement('input');
-      input.className = 'me-cell';
-      input.type = 'text';
-      input.maxLength = 2;
-      input.dataset.col = col;
-      input.dataset.row = rowIdx;
-      input.setAttribute('autocomplete', 'off');
-      input.setAttribute('autocorrect', 'off');
-      input.setAttribute('autocapitalize', 'characters');
-      input.setAttribute('spellcheck', 'false');
-      input.setAttribute('aria-label', `Row ${rowIdx + 1} column ${col + 1}`);
+    message.forEach((rowValue, rowIdx) => {
+      // Row label (first CSS grid column)
+      const label = document.createElement('div');
+      label.className = 'me-adv-row-label';
+      label.textContent = rowIdx + 1;
+      gridInner.appendChild(label);
 
-      const swatch = document.createElement('button');
-      swatch.className = 'me-cell-color';
-      swatch.type = 'button';
+      // Parse row into 22 cells, center-padded
+      const parsed = parseString(rowValue);
+      const padLeft = Math.max(0, Math.floor((22 - parsed.length) / 2));
+      const cells = Array(padLeft).fill(' ')
+        .concat(parsed)
+        .concat(Array(Math.max(0, 22 - padLeft - parsed.length)).fill(' '))
+        .slice(0, 22);
+      while (cells.length < 22) cells.push(' ');
 
-      if (isColor) {
-        const key = cellValue[1];
-        swatch.dataset.colorCode = cellValue;
-        swatch.style.backgroundColor = COLOR_MAP[key];
-        swatch.title = COLOR_NAMES[key];
-        input.value = '';
-        input.classList.add('me-cell--colored');
-      } else {
-        input.value = cellValue === ' ' ? '' : cellValue;
-        swatch.dataset.colorCode = '';
-        swatch.style.backgroundColor = 'transparent';
-        swatch.title = 'No color';
+      for (let col = 0; col < 22; col++) {
+        const cellValue = cells[col];
+        const isColor = cellValue.length === 2 && cellValue[0] === '\\';
+
+        const colDiv = document.createElement('div');
+        colDiv.className = 'me-cell-col';
+        colDiv.dataset.row = rowIdx;
+        colDiv.dataset.col = col;
+
+        const input = document.createElement('input');
+        input.className = 'me-cell';
+        input.type = 'text';
+        input.maxLength = 2;
+        input.dataset.col = col;
+        input.dataset.row = rowIdx;
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'characters');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('aria-label', `Row ${rowIdx + 1} column ${col + 1}`);
+
+        if (isColor) {
+          const key = cellValue[1];
+          input.dataset.colorCode = cellValue;
+          input.style.backgroundColor = COLOR_MAP[key];
+          input.classList.add('me-cell--colored');
+        } else {
+          input.value = cellValue === ' ' ? '' : cellValue;
+          input.dataset.colorCode = '';
+        }
+
+        colDiv.appendChild(input);
+        gridInner.appendChild(colDiv);
       }
 
-      swatch.addEventListener('click', () => this._cycleCellColor(swatch, input));
+      // Row separator (not after last row)
+      if (rowIdx < message.length - 1) {
+        const rule = document.createElement('div');
+        rule.className = 'me-row-rule';
+        gridInner.appendChild(rule);
+      }
+    });
 
-      colDiv.appendChild(input);
-      colDiv.appendChild(swatch);
-      grid.appendChild(colDiv);
-    }
+    wrap.appendChild(gridInner);
+    wrap.appendChild(this._buildPaintOverlay(wrap, gridInner));
+    section.appendChild(wrap);
 
-    return grid;
+    return section;
   }
 
-  _cycleCellColor(swatch, input) {
-    const idx = SWATCH_CYCLE.indexOf(swatch.dataset.colorCode);
-    const next = SWATCH_CYCLE[(idx + 1) % SWATCH_CYCLE.length];
-    if (next) {
-      const key = next[1];
-      swatch.dataset.colorCode = next;
-      swatch.style.backgroundColor = COLOR_MAP[key];
-      swatch.title = COLOR_NAMES[key];
+  _buildPaletteToolbar(wrap) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'me-palette-toolbar';
+
+    const entries = [
+      { code: '', label: 'T', title: 'Text mode', bg: null },
+      { code: 'erase', label: '✕', title: 'Erase', bg: null },
+      ...Object.entries(COLOR_MAP).map(([key, hex]) => ({
+        code: '\\' + key, label: '', title: COLOR_NAMES[key], bg: hex
+      }))
+    ];
+
+    entries.forEach(({ code, label, title, bg }) => {
+      const btn = document.createElement('button');
+      btn.className = 'me-palette-swatch' + (code === '' ? ' me-palette-swatch--active' : '');
+      btn.type = 'button';
+      btn.dataset.color = code;
+      btn.title = title;
+      if (label) btn.textContent = label;
+      if (bg) btn.style.backgroundColor = bg;
+
+      btn.addEventListener('click', () => {
+        toolbar.querySelectorAll('.me-palette-swatch')
+          .forEach(s => s.classList.remove('me-palette-swatch--active'));
+        btn.classList.add('me-palette-swatch--active');
+        wrap.dataset.paintColor = code;
+        wrap.classList.toggle('me-adv-grid--painting', code !== '');
+      });
+
+      toolbar.appendChild(btn);
+    });
+
+    return toolbar;
+  }
+
+  _buildPaintOverlay(wrap, gridInner) {
+    const overlay = document.createElement('div');
+    overlay.className = 'me-adv-overlay';
+
+    let painting = false;
+    let lastPainted = null;
+
+    const hitCell = (e) => {
+      overlay.style.pointerEvents = 'none';
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      overlay.style.pointerEvents = '';
+      return el?.closest('.me-cell-col') ?? null;
+    };
+
+    overlay.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      painting = true;
+      lastPainted = null;
+      overlay.setPointerCapture(e.pointerId);
+      const colDiv = hitCell(e);
+      if (colDiv) {
+        lastPainted = colDiv;
+        this._paintCell(wrap, colDiv);
+      }
+    });
+
+    overlay.addEventListener('pointermove', (e) => {
+      if (!painting) return;
+      const colDiv = hitCell(e);
+      if (colDiv && colDiv !== lastPainted) {
+        lastPainted = colDiv;
+        this._paintCell(wrap, colDiv);
+      }
+    });
+
+    const stopPainting = () => { painting = false; lastPainted = null; };
+    overlay.addEventListener('pointerup', stopPainting);
+    overlay.addEventListener('pointercancel', stopPainting);
+
+    return overlay;
+  }
+
+  _paintCell(wrap, colDiv) {
+    const colorCode = wrap.dataset.paintColor;
+    const input = colDiv.querySelector('.me-cell');
+    if (!input) return;
+
+    if (colorCode && colorCode[0] === '\\') {
+      const key = colorCode[1];
+      input.dataset.colorCode = colorCode;
+      input.style.backgroundColor = COLOR_MAP[key];
       input.value = '';
       input.classList.add('me-cell--colored');
     } else {
-      this._clearCellColor(swatch, input);
+      this._clearCellColor(input);
+      input.value = '';
     }
   }
 
-  _clearCellColor(swatch, input) {
-    swatch.dataset.colorCode = '';
-    swatch.style.backgroundColor = 'transparent';
-    swatch.title = 'No color';
+  _clearCellColor(input) {
+    input.dataset.colorCode = '';
+    input.style.backgroundColor = '';
     input.classList.remove('me-cell--colored');
+  }
+
+  _cycleInputColor(input, direction) {
+    const cycle = Object.keys(COLOR_MAP).map(k => '\\' + k);
+    const idx = cycle.indexOf(input.dataset.colorCode);
+    const next = idx + direction;
+    if (next < 0 || next >= cycle.length) {
+      this._clearCellColor(input);
+    } else {
+      const code = cycle[next];
+      input.dataset.colorCode = code;
+      input.style.backgroundColor = COLOR_MAP[code[1]];
+      input.classList.add('me-cell--colored');
+    }
   }
 
   _expandRow(str) {
     const cells = parseString(str.trim());
-    const padLeft = Math.floor((22 - cells.length) / 2);
+    const padLeft = Math.max(0, Math.floor((22 - cells.length) / 2));
     const padded = Array(padLeft).fill(' ')
       .concat(cells)
       .concat(Array(Math.max(0, 22 - padLeft - cells.length)).fill(' '))
@@ -426,26 +543,14 @@ export class MessageEditor {
   }
 
   _moveCellFocus(cell, delta) {
-    const grid = cell.closest('.me-cell-grid');
-    const cells = Array.from(grid.querySelectorAll('.me-cell'));
+    const gridInner = cell.closest('.me-grid-inner');
+    if (!gridInner) return;
+    const cells = Array.from(gridInner.querySelectorAll('.me-cell'));
     const idx = cells.indexOf(cell);
     const next = cells[idx + delta];
     if (next) {
       next.focus();
       next.select();
-    } else if (delta > 0) {
-      // End of row — move to first cell of next row's grid
-      const card = cell.closest('.me-card');
-      const grids = Array.from(card.querySelectorAll('.me-cell-grid'));
-      const gridIdx = grids.indexOf(grid);
-      grids[gridIdx + 1]?.querySelector('.me-cell')?.focus();
-    } else if (delta < 0) {
-      // Start of row — move to last cell of previous row's grid
-      const card = cell.closest('.me-card');
-      const grids = Array.from(card.querySelectorAll('.me-cell-grid'));
-      const gridIdx = grids.indexOf(grid);
-      const prevCells = grids[gridIdx - 1]?.querySelectorAll('.me-cell');
-      if (prevCells?.length) prevCells[prevCells.length - 1].focus();
     }
   }
 
@@ -454,7 +559,9 @@ export class MessageEditor {
 
     switch (e.key) {
       case 'Backspace':
-        if (cell.value !== '') {
+        if (cell.dataset.colorCode) {
+          this._clearCellColor(cell);
+        } else if (cell.value !== '') {
           cell.value = '';
         } else {
           e.preventDefault();
@@ -463,6 +570,7 @@ export class MessageEditor {
         break;
 
       case 'Delete':
+        if (cell.dataset.colorCode) this._clearCellColor(cell);
         cell.value = '';
         break;
 
@@ -479,25 +587,26 @@ export class MessageEditor {
       case 'ArrowDown': {
         e.preventDefault();
         const col = parseInt(cell.dataset.col, 10);
-        const card = cell.closest('.me-card');
-        const grids = Array.from(card.querySelectorAll('.me-cell-grid'));
-        const gridIdx = grids.indexOf(cell.closest('.me-cell-grid'));
-        grids[gridIdx + 1]?.querySelectorAll('.me-cell')[col]?.focus();
+        const row = parseInt(cell.dataset.row, 10);
+        cell.closest('.me-card')
+          ?.querySelector(`.me-cell[data-row="${row + 1}"][data-col="${col}"]`)
+          ?.focus();
         break;
       }
 
       case 'ArrowUp': {
         e.preventDefault();
         const col = parseInt(cell.dataset.col, 10);
-        const card = cell.closest('.me-card');
-        const grids = Array.from(card.querySelectorAll('.me-cell-grid'));
-        const gridIdx = grids.indexOf(cell.closest('.me-cell-grid'));
-        grids[gridIdx - 1]?.querySelectorAll('.me-cell')[col]?.focus();
+        const row = parseInt(cell.dataset.row, 10);
+        cell.closest('.me-card')
+          ?.querySelector(`.me-cell[data-row="${row - 1}"][data-col="${col}"]`)
+          ?.focus();
         break;
       }
 
       case ' ':
         e.preventDefault();
+        if (cell.dataset.colorCode) this._clearCellColor(cell);
         cell.value = ''; // empty = space on read-back
         this._moveCellFocus(cell, 1);
         break;
@@ -508,12 +617,12 @@ export class MessageEditor {
     const cards = this._cardsEl.querySelectorAll('.me-card');
     return Array.from(cards).map(card => {
       if (card.dataset.advanced === '1') {
-        return Array.from(card.querySelectorAll('.me-cell-grid')).map(grid =>
+        const numRows = getGridRows();
+        return Array.from({ length: numRows }, (_, r) =>
           serializeCells(
-            Array.from(grid.querySelectorAll('.me-cell-col')).map(colDiv => {
-              const swatch = colDiv.querySelector('.me-cell-color');
-              if (swatch && swatch.dataset.colorCode) return swatch.dataset.colorCode;
+            Array.from(card.querySelectorAll(`.me-cell-col[data-row="${r}"]`)).map(colDiv => {
               const input = colDiv.querySelector('.me-cell');
+              if (input.dataset.colorCode) return input.dataset.colorCode;
               return input.value === '' ? ' ' : input.value.toUpperCase();
             })
           )
