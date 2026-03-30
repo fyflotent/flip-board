@@ -5,7 +5,7 @@ import { COLOR_MAP, GRID_COLS } from '../js/constants.js';
 
 // Mirror of MessageEditor._expandRow — center-pads a simple row to GRID_COLS cells
 function expandRow(str) {
-  const cells = parseString(str.trim());
+  const cells = parseString(str);
   const padLeft = Math.max(0, Math.floor((GRID_COLS - cells.length) / 2));
   const padded = Array(padLeft).fill(' ')
     .concat(cells)
@@ -140,8 +140,26 @@ describe('expandRow', () => {
     assert.equal(cells.length, GRID_COLS);
   });
 
-  it('trims leading/trailing whitespace before expanding', () => {
-    assert.equal(expandRow('  HELLO  '), expandRow('HELLO'));
+  it('preserves intentional leading/trailing spaces when expanding', () => {
+    // " HELLO" (leading space) and "HELLO" should produce different expanded rows
+    // because the leading space is part of the content, not incidental whitespace
+    const withLeading = expandRow(' HELLO');
+    const without = expandRow('HELLO');
+    assert.notEqual(withLeading, without, 'leading space should shift content position');
+    // Specifically: H appears one column later in the leading-space version
+    const hPosWith = parseString(withLeading).indexOf('H');
+    const hPosWithout = parseString(without).indexOf('H');
+    assert.equal(hPosWith, hPosWithout + 1, 'leading space should shift H one column right');
+  });
+
+  it('a 22-cell string with intentional leading space is not re-padded', () => {
+    // Reproduce the reported bug: " \w \w..." with 1 leading space should stay at 1
+    const str = ' \\w \\w \\w \\w  \\w \\w \\w\\w\\w \\w   ';
+    assert.equal(countVisualChars(str), 22);
+    const expanded = expandRow(str);
+    const cells = parseString(expanded);
+    assert.equal(cells[0], ' ', 'first cell should be a space');
+    assert.equal(cells[1], '\\w', 'second cell should be white, not another space');
   });
 
   it('preserves color codes in expanded output', () => {

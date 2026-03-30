@@ -8,8 +8,8 @@ const COLOR_NAMES = {
 };
 const COLOR_KEYS = new Set(Object.keys(COLOR_MAP));
 
-const STORAGE_KEY = 'flipoff_messages';
-const ADVANCED_KEY = 'flipoff_advanced_cards';
+const STORAGE_KEY = 'flipboard_messages';
+const ADVANCED_KEY = 'flipboard_advanced_cards';
 
 function loadAdvancedCards() {
   try {
@@ -503,7 +503,7 @@ export class MessageEditor {
   }
 
   _expandRow(str) {
-    const cells = parseString(str.trim());
+    const cells = parseString(str);
     const padLeft = Math.max(0, Math.floor((22 - cells.length) / 2));
     const padded = Array(padLeft).fill(' ')
       .concat(cells)
@@ -655,7 +655,7 @@ export class MessageEditor {
     const json = JSON.stringify(messages, null, 2);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    a.download = 'flipoff-messages.json';
+    a.download = 'flipboard-messages.json';
     a.click();
     URL.revokeObjectURL(a.href);
   }
